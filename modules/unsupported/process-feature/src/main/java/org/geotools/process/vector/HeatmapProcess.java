@@ -17,10 +17,8 @@
  */
 package org.geotools.process.vector;
 
-import javax.measure.unit.NonSI;
-import javax.measure.unit.SI;
-import javax.measure.unit.Unit;
-
+import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.Geometry;
 import org.geotools.coverage.CoverageFactoryFinder;
 import org.geotools.coverage.grid.GridCoverage2D;
 import org.geotools.coverage.grid.GridCoverageFactory;
@@ -47,8 +45,10 @@ import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
 import org.opengis.util.ProgressListener;
 
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.Geometry;
+import javax.measure.unit.NonSI;
+import javax.measure.unit.SI;
+import javax.measure.unit.Unit;
+import java.util.logging.Logger;
 
 /**
  * A Process that uses a {@link HeatmapSurface} to compute a heatmap surface over a set of
@@ -120,6 +120,8 @@ import com.vividsolutions.jts.geom.Geometry;
 @DescribeProcess(title = "Heatmap", description = "Computes a heatmap surface over a set of data points and outputs as a single-band raster.")
 public class HeatmapProcess implements VectorProcess {
 
+    private static Logger logger = Logger.getLogger("org.geotools.process.vector");
+
     @DescribeResult(name = "result", description = "Output raster")
     public GridCoverage2D execute(
 
@@ -128,7 +130,9 @@ public class HeatmapProcess implements VectorProcess {
 
             // process parameters
             @DescribeParameter(name = "radiusPixels", description = "Radius of the density kernel in pixels") Integer argRadiusPixels,
+            @DescribeParameter(name = "pointRadiusFactor", description = "Radius size of a point in relation to kernel radius") Float pointRadiusFactor,
             @DescribeParameter(name = "weightAttr", description = "Name of the attribute to use for data point weight", min = 0, max = 1) String valueAttr,
+            @DescribeParameter(name = "normAttr", description = "The normalization adjustment factor", min = 0, max = 1) Float normFactor,
             @DescribeParameter(name = "pixelsPerCell", description = "Resolution at which to compute the heatmap (in pixels). Default = 1", defaultValue="1", min = 0, max = 1) Integer argPixelsPerCell,
 
             // output image parameters
@@ -179,14 +183,17 @@ public class HeatmapProcess implements VectorProcess {
             radiusCells /= pixelsPerCell;
         }
 
+        float pointRadius = argRadiusPixels / pointRadiusFactor;
+
+        logger.info("pointRadius = " + pointRadius);
 
         /**
          * -------------- Extract the input observation points -----------
          */
-        HeatmapSurface heatMap = new HeatmapSurface(radiusCells, argOutputEnv, gridWidth,
+        HeatmapSurface heatMap = new HeatmapSurface(radiusCells, normFactor, argOutputEnv, gridWidth,
                 gridHeight);
         try {
-            extractPoints(obsFeatures, valueAttr, trans, heatMap);
+            extractPoints(obsFeatures, valueAttr, pointRadius, trans, heatMap);
         } catch (CQLException e) {
             throw new ProcessException(e);
         }
@@ -327,7 +334,7 @@ public class HeatmapProcess implements VectorProcess {
                 distance), null);
     }
 
-    public static void extractPoints(SimpleFeatureCollection obsPoints, String attrName,
+    public static void extractPoints(SimpleFeatureCollection obsPoints, String attrName, float pointRadius,
             MathTransform trans, HeatmapSurface heatMap) throws CQLException {
         Expression attrExpr = null;
         if (attrName != null) {
@@ -359,7 +366,7 @@ public class HeatmapProcess implements VectorProcess {
                     trans.transform(srcPt, 0, dstPt, 0, 1);
                     Coordinate pobs = new Coordinate(dstPt[0], dstPt[1], val);
 
-                    heatMap.addPoint(pobs.x, pobs.y, val);
+                    heatMap.addPoint(pobs.x, pobs.y, val, pointRadius);
                 } catch (Exception e) {
                     // just carry on for now (debugging)
                     // throw new ProcessException("Expression " + attrExpr +

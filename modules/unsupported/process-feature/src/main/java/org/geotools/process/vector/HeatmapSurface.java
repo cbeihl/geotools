@@ -19,6 +19,8 @@ package org.geotools.process.vector;
 
 import com.vividsolutions.jts.geom.Envelope;
 
+import java.util.logging.Logger;
+
 /**
  * Computes a Heat Map surface from a set of irregular data points, each containing a positive
  * height value. The nature of the surface is determined by a kernelRadius value, which indicates
@@ -34,6 +36,9 @@ import com.vividsolutions.jts.geom.Envelope;
  * 
  */
 public class HeatmapSurface {
+
+    private static Logger logger = Logger.getLogger("org.geotools.process.vector");
+
     /**
      * Number of iterations of box blur to approximate a Gaussian blur
      */
@@ -51,6 +56,8 @@ public class HeatmapSurface {
 
     private int kernelRadiusGrid;
 
+    private Float normFactor;
+
     /**
      * Creates a new heatmap surface.
      * 
@@ -59,13 +66,16 @@ public class HeatmapSurface {
      * @param xSize the width of the output grid
      * @param ySize the height of the output grid
      */
-    public HeatmapSurface(int kernelRadius, Envelope srcEnv, int xSize, int ySize) {
+    public HeatmapSurface(int kernelRadius, Float normFactor, Envelope srcEnv, int xSize, int ySize) {
         // radius must be non-negative
         this.kernelRadiusGrid = Math.max(kernelRadius, 0);
 
+        this.normFactor = normFactor;
         this.srcEnv = srcEnv;
         this.xSize = xSize;
         this.ySize = ySize;
+
+        logger.info("Computing heatmap of size ( " + xSize + ", " + ySize + " )");
 
         init();
     }
@@ -93,7 +103,7 @@ public class HeatmapSurface {
      * @param y the Y ordinate of the point
      * @param value the data value of the point
      */
-    public void addPoint(double x, double y, double value) 
+    public void addPoint(double x, double y, double value, double radius)
     {
         /**
          * Input points are converted to grid space, and offset by the grid expansion offset
@@ -104,8 +114,24 @@ public class HeatmapSurface {
         // check if point falls outside grid - skip it if so
         if (gi < 0 || gi > grid.length || gj < 0 || gj > grid[0].length)
             return;
-        
+
+        // using a square instead of a circle since its easier
+
+        // center point first
         grid[gi][gj] += value;
+
+        int halfWidth = (int) Math.floor(radius / 2);
+        int minX = gi - halfWidth;
+        int maxX = gi + halfWidth;
+        int minY = gj - halfWidth;
+        int maxY = gj + halfWidth;
+
+        for ( int i = minX; i <= maxX; i++) {
+            for ( int j = minY; j <= maxY; j++) {
+                grid[i][j] += value;
+            }
+        }
+
         // System.out.println("data[" + gi + ", " + gj + "] <- " + value);
     }
 
@@ -208,15 +234,20 @@ public class HeatmapSurface {
      * @param grid
      */
     private void normalize(float[][] grid) {
-        float max = Float.NEGATIVE_INFINITY;
-        for (int i = 0; i < grid.length; i++) {
-            for (int j = 0; j < grid[0].length; j++) {
-                if (grid[i][j] > max)
-                    max = grid[i][j];
+        Float max = normFactor;
+
+        if (max == null) {
+            max = Float.NEGATIVE_INFINITY;
+            for (int i = 0; i < grid.length; i++) {
+                for (int j = 0; j < grid[0].length; j++) {
+                    if (grid[i][j] > max)
+                        max = grid[i][j];
+                }
             }
         }
 
         float normFactor = 1.0f / max;
+        logger.info("Normalization factor : " + normFactor);
 
         for (int i = 0; i < grid.length; i++) {
             for (int j = 0; j < grid[0].length; j++) {
@@ -238,6 +269,7 @@ public class HeatmapSurface {
         // init moving average total
         float kernelVal = kernelVal(kernelRadius);
         // System.out.println("boxblur: radius = " + kernelRadius + " kernel val = " + kernelVal);
+        logger.info("boxblur: radius = " + kernelRadius + " kernel val = " + kernelVal);
 
         for (int j = 0; j < height; j++) {
 
@@ -266,7 +298,6 @@ public class HeatmapSurface {
 
                 output[j][i] = (float) tot;
                 // if (i==49 && j==147) System.out.println("val[ " + i + ", " + j + "] = " + tot);
-
             }
         }
     }
