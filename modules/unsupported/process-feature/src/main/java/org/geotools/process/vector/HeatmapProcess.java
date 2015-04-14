@@ -120,7 +120,7 @@ import java.util.logging.Logger;
 @DescribeProcess(title = "Heatmap", description = "Computes a heatmap surface over a set of data points and outputs as a single-band raster.")
 public class HeatmapProcess implements VectorProcess {
 
-    private static Logger logger = Logger.getLogger("org.geotools.process.vector");
+    private static Logger logger = org.geotools.util.logging.Logging.getLogger("org.geotools.process.vector");
 
     @DescribeResult(name = "result", description = "Output raster")
     public GridCoverage2D execute(

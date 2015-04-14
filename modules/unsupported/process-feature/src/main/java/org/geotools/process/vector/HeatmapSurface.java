@@ -37,7 +37,7 @@ import java.util.logging.Logger;
  */
 public class HeatmapSurface {
 
-    private static Logger logger = Logger.getLogger("org.geotools.process.vector");
+    private static Logger logger = org.geotools.util.logging.Logging.getLogger("org.geotools.process.vector");
 
     /**
      * Number of iterations of box blur to approximate a Gaussian blur
@@ -115,20 +115,21 @@ public class HeatmapSurface {
         if (gi < 0 || gi > grid.length || gj < 0 || gj > grid[0].length)
             return;
 
-        // using a square instead of a circle since its easier
+        // using a square instead of a circle to simplify things
+        float xFloat = gi + 0.5f;
+        float yFloat = gj + 0.5f;
+        float halfWidth = (float) (radius / 2);
 
-        // center point first
-        grid[gi][gj] += value;
+        if (halfWidth >= 0.5) {
+            int minX = (int) Math.ceil(xFloat - halfWidth);
+            int maxX = (int) Math.floor(xFloat + halfWidth);
+            int minY = (int) Math.ceil(yFloat - halfWidth);
+            int maxY = (int) Math.floor(yFloat + halfWidth);
 
-        int halfWidth = (int) Math.floor(radius / 2);
-        int minX = gi - halfWidth;
-        int maxX = gi + halfWidth;
-        int minY = gj - halfWidth;
-        int maxY = gj + halfWidth;
-
-        for ( int i = minX; i <= maxX; i++) {
-            for ( int j = minY; j <= maxY; j++) {
-                grid[i][j] += value;
+            for ( int i = minX; i <= maxX; i++) {
+                for ( int j = minY; j <= maxY; j++) {
+                    grid[i][j] += value;
+                }
             }
         }
 
