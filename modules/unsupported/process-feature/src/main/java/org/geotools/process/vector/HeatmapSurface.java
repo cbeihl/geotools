@@ -56,7 +56,7 @@ public class HeatmapSurface {
 
     private int kernelRadiusGrid;
 
-    private Float normFactor;
+    private Float fixedMax;
 
     /**
      * Creates a new heatmap surface.
@@ -66,11 +66,11 @@ public class HeatmapSurface {
      * @param xSize the width of the output grid
      * @param ySize the height of the output grid
      */
-    public HeatmapSurface(int kernelRadius, Float normFactor, Envelope srcEnv, int xSize, int ySize) {
+    public HeatmapSurface(int kernelRadius, Float fixedMax, Envelope srcEnv, int xSize, int ySize) {
         // radius must be non-negative
         this.kernelRadiusGrid = Math.max(kernelRadius, 0);
 
-        this.normFactor = normFactor;
+        this.fixedMax = fixedMax;
         this.srcEnv = srcEnv;
         this.xSize = xSize;
         this.ySize = ySize;
@@ -118,13 +118,12 @@ public class HeatmapSurface {
         // using a square instead of a circle to simplify things
         float xFloat = gi + 0.5f;
         float yFloat = gj + 0.5f;
-        float halfWidth = (float) (radius / 2);
 
-        if (halfWidth >= 0.5) {
-            int minX = (int) Math.ceil(xFloat - halfWidth);
-            int maxX = (int) Math.floor(xFloat + halfWidth);
-            int minY = (int) Math.ceil(yFloat - halfWidth);
-            int maxY = (int) Math.floor(yFloat + halfWidth);
+        if (radius >= 0.80) {
+            int minX = (int) Math.ceil(xFloat - radius);
+            int maxX = (int) Math.floor(xFloat + radius);
+            int minY = (int) Math.ceil(yFloat - radius);
+            int maxY = (int) Math.floor(yFloat + radius);
 
             for ( int i = minX; i <= maxX; i++) {
                 for ( int j = minY; j <= maxY; j++) {
@@ -235,20 +234,23 @@ public class HeatmapSurface {
      * @param grid
      */
     private void normalize(float[][] grid) {
-        Float max = normFactor;
-
-        if (max == null) {
-            max = Float.NEGATIVE_INFINITY;
-            for (int i = 0; i < grid.length; i++) {
-                for (int j = 0; j < grid[0].length; j++) {
-                    if (grid[i][j] > max)
-                        max = grid[i][j];
-                }
+        float realMax = Float.NEGATIVE_INFINITY;
+        for (int i = 0; i < grid.length; i++) {
+            for (int j = 0; j < grid[0].length; j++) {
+                if (grid[i][j] > realMax)
+                    realMax = grid[i][j];
             }
         }
 
+        float max;
+        if (fixedMax != null) {
+            max = fixedMax;
+        } else {
+            max = realMax;
+        }
+
         float normFactor = 1.0f / max;
-        logger.info("Normalization factor : " + normFactor);
+        logger.info("Normalization factor : " + normFactor + ", realMax = " + realMax);
 
         for (int i = 0; i < grid.length; i++) {
             for (int j = 0; j < grid[0].length; j++) {

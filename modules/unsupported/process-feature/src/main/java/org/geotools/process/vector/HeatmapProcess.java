@@ -183,9 +183,9 @@ public class HeatmapProcess implements VectorProcess {
             radiusCells /= pixelsPerCell;
         }
 
-        float pointRadius = argRadiusPixels / pointRadiusFactor;
+        float pointRadius = radiusCells / pointRadiusFactor;
 
-        logger.info("pointRadius = " + pointRadius);
+        logger.info("radiusCells = " + radiusCells + ", pointRadius = " + pointRadius);
 
         /**
          * -------------- Extract the input observation points -----------
