@@ -119,17 +119,44 @@ public class HeatmapSurface {
         float xFloat = gi + 0.5f;
         float yFloat = gj + 0.5f;
 
-        if (radius >= 0.80) {
+        if (radius >= 0.50) {
             int minX = (int) Math.ceil(xFloat - radius);
             int maxX = (int) Math.floor(xFloat + radius);
             int minY = (int) Math.ceil(yFloat - radius);
             int maxY = (int) Math.floor(yFloat + radius);
+
+            int pointArea = (maxX - minX) * (maxY - minY);
+
 
             for ( int i = minX; i <= maxX; i++) {
                 for ( int j = minY; j <= maxY; j++) {
                     grid[i][j] += value;
                 }
             }
+
+            // now for the border
+            double borderX = xFloat + radius - maxX;
+            double borderY = yFloat + radius - maxY;
+
+            for ( int i = minX; i <= maxX; i++) {
+                grid[i][minY-1] += ( value * borderY );
+                grid[i][maxY+1] += ( value * borderY );
+            }
+
+            for ( int j = minY; j <= maxY; j++) {
+                grid[minX-1][j] += ( value * borderX );
+                grid[maxX+1][j] += ( value * borderX );
+            }
+
+            // corners
+            grid[minX-1][minY-1] += ( value * borderX * borderY );
+            grid[maxX+1][minY-1] += ( value * borderX * borderY );
+            grid[minX-1][maxY+1] += ( value * borderX * borderY );
+            grid[maxX+1][maxY+1] += ( value * borderX * borderY );
+
+            // double pointAreaAdj = (4 * value * borderX * borderY) + (2 * (maxX - minX) * value * borderY) + (2 * (maxY - minY) * value * borderX);
+            // logger.info("pointArea = " + (pointArea + pointAreaAdj) + ", expected pointArea = " + (Math.pow(radius * 2, 2)));
+
         }
 
         // System.out.println("data[" + gi + ", " + gj + "] <- " + value);
